@@ -67,26 +67,6 @@ services:
       retries: 3
 
   # PostgreSQL Databases
-  db-gateway:
-    image: postgres:15-alpine
-    container_name: 4ever-db-gateway
-    environment:
-      POSTGRES_DB: gateway_db
-      POSTGRES_USER: gateway_user
-      POSTGRES_PASSWORD: gateway_pass
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
-    ports:
-      - "10001:5432"
-    volumes:
-      - gateway_data:/var/lib/postgresql/data
-    networks:
-      - 4ever-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gateway_user -d gateway_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   db-auth:
     image: postgres:15-alpine
     container_name: 4ever-db-auth
@@ -147,26 +127,6 @@ services:
       timeout: 5s
       retries: 5
 
-  db-cb:
-    image: postgres:15-alpine
-    container_name: 4ever-db-cb
-    environment:
-      POSTGRES_DB: cb_db
-      POSTGRES_USER: cb_user
-      POSTGRES_PASSWORD: cb_pass
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
-    ports:
-      - "10005:5432"
-    volumes:
-      - cb_data:/var/lib/postgresql/data
-    networks:
-      - 4ever-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cb_user -d cb_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   db-payment:
     image: postgres:15-alpine
     container_name: 4ever-db-payment
@@ -207,7 +167,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # API Gateway (가장 먼저 시작)
+  # API Gateway (DB 사용 안함, Kafka + Redis만 사용)
   gateway:
     build:
       context: ./_4EVER_BE_GW
@@ -216,20 +176,15 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-gateway:5432/gateway_db
-      - SPRING_DATASOURCE_USERNAME=gateway_user
-      - SPRING_DATASOURCE_PASSWORD=gateway_pass
-      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_JPA_SHOW_SQL=true
+      - SERVER_PORT=8080
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - SPRING_REDIS_PASSWORD=redis_password
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=gateway-group
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=redis_password
     networks:
       - 4ever-network
     depends_on:
-      - db-gateway
       - kafka
       - redis
 
@@ -240,8 +195,9 @@ services:
       dockerfile: Dockerfile-dev
     container_name: 4ever-auth
     ports:
-      - "8082:8082"
+      - "8081:8081"
     environment:
+      - SERVER_PORT=8081
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-auth:5432/auth_db
       - SPRING_DATASOURCE_USERNAME=auth_user
       - SPRING_DATASOURCE_PASSWORD=auth_pass
@@ -249,6 +205,7 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=true
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=auth-group
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=redis_password
@@ -266,8 +223,9 @@ services:
       dockerfile: Dockerfile-dev
     container_name: 4ever-alarm
     ports:
-      - "8081:8081"
+      - "8082:8082"
     environment:
+      - SERVER_PORT=8082
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-alarm:5432/alarm_db
       - SPRING_DATASOURCE_USERNAME=alarm_user
       - SPRING_DATASOURCE_PASSWORD=alarm_pass
@@ -275,6 +233,7 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=true
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=alarm-group
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=redis_password
@@ -294,6 +253,8 @@ services:
     ports:
       - "8083:8083"
     environment:
+      - SERVER_PORT=8083
+      - SPRING_PROFILES_ACTIVE=dev
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-business:5432/business_db
       - SPRING_DATASOURCE_USERNAME=business_user
       - SPRING_DATASOURCE_PASSWORD=business_pass
@@ -301,39 +262,19 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=true
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=business-group
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=redis_password
+      - MONGODB_HOST=localhost
+      - MONGODB_PORT=27017
+      - MONGODB_DATABASE=business_db
+      - MONGODB_USERNAME=business_user
+      - MONGODB_PASSWORD=business_pass
     networks:
       - 4ever-network
     depends_on:
       - db-business
-      - kafka
-      - redis
-
-  # Circuit Breaker 서비스
-  circuit-breaker:
-    build:
-      context: ./_4EVER_BE_CB
-      dockerfile: Dockerfile-dev
-    container_name: 4ever-cb
-    ports:
-      - "8084:8084"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-cb:5432/cb_db
-      - SPRING_DATASOURCE_USERNAME=cb_user
-      - SPRING_DATASOURCE_PASSWORD=cb_pass
-      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_JPA_SHOW_SQL=true
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - SPRING_REDIS_PASSWORD=redis_password
-    networks:
-      - 4ever-network
-    depends_on:
-      - db-cb
       - kafka
       - redis
 
@@ -344,8 +285,9 @@ services:
       dockerfile: Dockerfile-dev
     container_name: 4ever-payment
     ports:
-      - "8085:8085"
+      - "8084:8084"
     environment:
+      - SERVER_PORT=8084
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-payment:5432/payment_db
       - SPRING_DATASOURCE_USERNAME=payment_user
       - SPRING_DATASOURCE_PASSWORD=payment_pass
@@ -353,6 +295,7 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=true
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=payment-group
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=redis_password
@@ -370,8 +313,9 @@ services:
       dockerfile: Dockerfile-dev
     container_name: 4ever-scm
     ports:
-      - "8086:8086"
+      - "8085:8085"
     environment:
+      - SERVER_PORT=8085
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db-scm:5432/scm_db
       - SPRING_DATASOURCE_USERNAME=scm_user
       - SPRING_DATASOURCE_PASSWORD=scm_pass
@@ -379,6 +323,7 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=true
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPRING_KAFKA_CONSUMER_GROUP_ID=scm-group
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=redis_password
@@ -396,10 +341,8 @@ networks:
 volumes:
   kafka_data:
   redis_data:
-  gateway_data:
   auth_data:
   alarm_data:
   business_data:
-  cb_data:
   payment_data:
   scm_data:
