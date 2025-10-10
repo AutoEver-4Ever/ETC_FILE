@@ -3,6 +3,8 @@
         up-gateway up-auth up-alarm up-business up-payment up-scm \
         logs-gateway logs-auth logs-alarm logs-business logs-payment logs-scm \
         restart-gateway restart-auth restart-alarm restart-business restart-payment restart-scm \
+        prod-deploy-gateway prod-deploy-auth prod-deploy-alarm prod-deploy-business prod-deploy-payment prod-deploy-scm \
+        prod-init prod-up prod-down prod-restart prod-logs prod-status \
         db-up db-down db-logs db-reset db-status db-backup \
         db-connect-auth db-connect-alarm db-connect-business db-connect-payment db-connect-scm \
         kafka-up kafka-down kafka-logs kafka-topics kafka-create-topic kafka-console \
@@ -11,7 +13,9 @@
         clean-volumes clean-all health check-ports dev quick-start full-restart stats mem-total
 
 # 기본 변수
+COMPOSE_FILE := $(shell if [ -f docker-compose.yml ]; then echo "docker-compose.yml"; else echo "docker-compose.prod.yml"; fi)
 COMPOSE_DEV = docker compose
+COMPOSE_PROD = docker compose -f docker-compose.prod.yml
 SERVICES = gateway auth alarm business payment scm
 
 # 도움말 (기본 명령어)
@@ -63,6 +67,22 @@ help:
 	@echo "  make check-ports      - 포트 사용 현황"
 	@echo "  make stats            - 리소스 사용량"
 	@echo "  make mem-total        - 총 메모리 사용량"
+	@echo ""
+	@echo "🚀 프로덕션 환경 관리:"
+	@echo "  make prod-init            - 프로덕션 환경 초기 세팅 (전체 배포)"
+	@echo "  make prod-up              - 프로덕션 환경 전체 시작"
+	@echo "  make prod-down            - 프로덕션 환경 전체 중지"
+	@echo "  make prod-restart         - 프로덕션 환경 전체 재시작"
+	@echo "  make prod-logs            - 프로덕션 환경 전체 로그"
+	@echo "  make prod-status          - 프로덕션 환경 상태 확인"
+	@echo ""
+	@echo "🔄 프로덕션 개별 배포 (CI/CD 전용):"
+	@echo "  make prod-deploy-gateway  - Gateway 프로덕션 배포"
+	@echo "  make prod-deploy-auth     - Auth 프로덕션 배포"
+	@echo "  make prod-deploy-alarm    - Alarm 프로덕션 배포"
+	@echo "  make prod-deploy-business - Business 프로덕션 배포"
+	@echo "  make prod-deploy-payment  - Payment 프로덕션 배포"
+	@echo "  make prod-deploy-scm      - SCM 프로덕션 배포"
 	@echo ""
 	@echo "🧹 정리:"
 	@echo "  make clean            - Docker 리소스 정리"
@@ -463,6 +483,144 @@ clean-all:
 	else \
 		echo "❌ 취소되었습니다."; \
 	fi
+
+##@ 프로덕션 환경 관리
+
+prod-init:
+	@echo "========================================="
+	@echo "🚀 프로덕션 환경 초기 세팅 시작"
+	@echo "========================================="
+	@echo ""
+	@echo "📋 사전 체크리스트:"
+	@echo "  ✓ .env.prod 파일 준비"
+	@echo "  ✓ docker-compose.prod.yml 파일 준비"
+	@echo "  ✓ S3에 application.yml 파일들 업로드"
+	@echo "  ✓ application.yml 파일들 다운로드 완료"
+	@echo ""
+	@echo "1️⃣ 인프라 서비스 시작 (Zookeeper, Kafka, Redis)"
+	$(COMPOSE_PROD) up -d zookeeper kafka redis
+	@echo "⏳ Kafka 초기화 대기 중 (30초)..."
+	@sleep 30
+	@echo ""
+	@echo "2️⃣ 데이터베이스 서비스 시작"
+	$(COMPOSE_PROD) up -d db-auth db-alarm db-business db-payment db-scm
+	@echo "⏳ 데이터베이스 초기화 대기 중 (15초)..."
+	@sleep 15
+	@echo ""
+	@echo "3️⃣ Nginx 및 Certbot 서비스 시작"
+	$(COMPOSE_PROD) up -d nginx certbot
+	@echo ""
+	@echo "4️⃣ 애플리케이션 서비스 시작"
+	$(COMPOSE_PROD) up -d gateway auth alarm business payment scm
+	@echo "⏳ 애플리케이션 초기화 대기 중 (10초)..."
+	@sleep 10
+	@echo ""
+	@echo "========================================="
+	@echo "✅ 프로덕션 환경 초기 세팅 완료"
+	@echo "========================================="
+	@echo ""
+	@make prod-status
+
+prod-up:
+	@echo "🚀 프로덕션 환경 전체 시작"
+	$(COMPOSE_PROD) up -d
+	@echo "✅ 프로덕션 환경 시작 완료"
+	@make prod-status
+
+prod-down:
+	@echo "🛑 프로덕션 환경 전체 중지"
+	$(COMPOSE_PROD) down
+	@echo "✅ 프로덕션 환경 중지 완료"
+
+prod-restart:
+	@echo "🔄 프로덕션 환경 전체 재시작"
+	$(COMPOSE_PROD) restart
+	@echo "✅ 프로덕션 환경 재시작 완료"
+	@make prod-status
+
+prod-logs:
+	@echo "📋 프로덕션 환경 전체 로그 (실시간)"
+	$(COMPOSE_PROD) logs -f
+
+prod-status:
+	@echo "📊 프로덕션 환경 상태:"
+	@echo ""
+	@$(COMPOSE_PROD) ps
+	@echo ""
+	@echo "🌐 서비스 엔드포인트:"
+	@echo "  Gateway:   http://your-domain.com:8080"
+	@echo "  Auth:      http://your-domain.com:8081"
+	@echo "  Alarm:     http://your-domain.com:8082"
+	@echo "  Business:  http://your-domain.com:8083"
+	@echo "  Payment:   http://your-domain.com:8084"
+	@echo "  SCM:       http://your-domain.com:8085"
+	@echo ""
+	@echo "🗄️  인프라 서비스:"
+	@echo "  Kafka:     localhost:9092"
+	@echo "  Redis:     localhost:6379"
+	@echo "  Zookeeper: localhost:2181"
+
+##@ 프로덕션 개별 배포 (CI/CD 전용)
+
+prod-deploy-gateway:
+	@echo "🚀 [PROD] Gateway 배포 시작..."
+	@echo "📥 최신 이미지 Pull..."
+	docker pull hojipkim/everp_gateway:latest
+	@echo "🔄 Gateway 서비스 재시작..."
+	$(COMPOSE_PROD) up -d --no-deps gateway
+	@echo "✅ Gateway 배포 완료"
+	@sleep 5
+	@docker ps --filter "name=4ever-gateway" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+prod-deploy-auth:
+	@echo "🚀 [PROD] Auth 배포 시작..."
+	@echo "📥 최신 이미지 Pull..."
+	docker pull hojipkim/everp_user:latest
+	@echo "🔄 Auth 서비스 재시작..."
+	$(COMPOSE_PROD) up -d --no-deps auth
+	@echo "✅ Auth 배포 완료"
+	@sleep 5
+	@docker ps --filter "name=4ever-auth" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+prod-deploy-alarm:
+	@echo "🚀 [PROD] Alarm 배포 시작..."
+	@echo "📥 최신 이미지 Pull..."
+	docker pull hojipkim/everp_alarm:latest
+	@echo "🔄 Alarm 서비스 재시작..."
+	$(COMPOSE_PROD) up -d --no-deps alarm
+	@echo "✅ Alarm 배포 완료"
+	@sleep 5
+	@docker ps --filter "name=4ever-alarm" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+prod-deploy-business:
+	@echo "🚀 [PROD] Business 배포 시작..."
+	@echo "📥 최신 이미지 Pull..."
+	docker pull hojipkim/everp_business:latest
+	@echo "🔄 Business 서비스 재시작..."
+	$(COMPOSE_PROD) up -d --no-deps business
+	@echo "✅ Business 배포 완료"
+	@sleep 5
+	@docker ps --filter "name=4ever-business" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+prod-deploy-payment:
+	@echo "🚀 [PROD] Payment 배포 시작..."
+	@echo "📥 최신 이미지 Pull..."
+	docker pull hojipkim/everp_payment:latest
+	@echo "🔄 Payment 서비스 재시작..."
+	$(COMPOSE_PROD) up -d --no-deps payment
+	@echo "✅ Payment 배포 완료"
+	@sleep 5
+	@docker ps --filter "name=4ever-payment" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+prod-deploy-scm:
+	@echo "🚀 [PROD] SCM 배포 시작..."
+	@echo "📥 최신 이미지 Pull..."
+	docker pull hojipkim/everp_scm:latest
+	@echo "🔄 SCM 서비스 재시작..."
+	$(COMPOSE_PROD) up -d --no-deps scm
+	@echo "✅ SCM 배포 완료"
+	@sleep 5
+	@docker ps --filter "name=4ever-scm" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 ##@ 통합 명령어
 
