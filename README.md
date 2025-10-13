@@ -184,6 +184,28 @@ make status
 -   **`make down`**: **개발 환경 전체 종료**
     -   실행 중인 모든 서비스 컨테이너를 중지하고 제거합니다. Kafka 데이터 볼륨도 함께 삭제하여 다음 실행 시 깨끗한 상태에서 시작하도록 합니다.
 
+### 🔄 리포지토리 최신화 (MSA 전체)
+
+여러 마이크로서비스 리포지토리를 한 번에 최신 상태로 업데이트합니다. 현재 폴더에서 `_4EVER_BE_*` 패턴에 매칭되는 디렉터리들을 자동으로 탐색합니다.
+
+```bash
+# 안전한 병합 방식(merge)로 최신화 (기본)
+make update-repos
+
+# 직접 실행 (옵션 커스터마이즈 가능)
+./scripts/update-repos.sh -r . -p "_4EVER_BE_*" --stash --no-rebase
+
+# 예시: develop 브랜치 강제 동기화 (주의: 로컬 변경사항 폐기)
+./scripts/update-repos.sh --branch develop --force
+```
+
+옵션 요약:
+- `--branch <name>`: 특정 브랜치를 명시 (미지정 시 `origin/HEAD` 추적 브랜치 사용)
+- `--stash`/`--pop-stash`: 업데이트 전 변경사항 임시 저장(필요시 복원)
+- `--no-rebase`: 병합(merge)로 pull, 기본은 rebase
+- `--force`: 원격 브랜치 상태로 강제 초기화(로컬 변경사항 폐기)
+- `--submodules`: 서브모듈까지 재귀적으로 최신화
+
 ### 📋 전체 서비스 관리
 
 -   **`make status`**: 실행 중인 모든 서비스와 데이터베이스의 상태를 확인합니다.
@@ -254,3 +276,42 @@ make status
     -   Colima 사용자는 터미널에서 `colima status`를 입력하여 VM이 실행 중인지 확인하고, 아니라면 `colima start`를 실행하세요.
 -   **포트 충돌(Port is already allocated) 오류가 발생하나요?**
     -   `docker-compose.yml`에 정의된 포트(8080-8086, 9092, 6379 등)를 다른 애플리케이션이 사용 중일 수 있습니다. 해당 프로세스를 종료하거나 `docker-compose.yml` 파일의 포트 번호를 수정하세요.
+
+---
+
+## 🔧 Docker Compose 명령 감지
+
+Makefile은 환경에 따라 `docker compose`(플러그인)와 `docker-compose`(독립 실행 파일)를 자동으로 감지해 사용합니다.
+
+- 자동 감지 로직: `docker compose version` 성공 시 이를 사용, 아니면 `docker-compose` 사용
+- 수동 강제(필요 시):
+  - `COMPOSE_DEV="docker compose" make dev`
+  - `COMPOSE_DEV="docker-compose" make dev`
+- 설치 안내:
+  - Docker Desktop(권장): macOS/Windows에 설치 시 `docker compose` 제공
+  - Homebrew(macOS): `brew install docker-compose`
+
+오류 예) `unknown shorthand flag: 'd' in -d`는 `docker compose`가 인식되지 않을 때 발생합니다. 이 경우 `docker-compose`를 설치하거나 위의 수동 강제 방법을 사용하세요.
+
+---
+
+## 🔄 리포지토리 자동 Pull/Update 스크립트 사용
+
+여러 마이크로서비스 리포지토리를 한 번에 최신화할 수 있습니다.
+
+- 기본 사용: `make update-repos`
+  - 현재 경로에서 `_4EVER_BE_*` 폴더들을 찾아 안전한 병합(merge) 방식으로 업데이트합니다.
+- 직접 실행(옵션 사용자화):
+  - `./scripts/update-repos.sh -r . -p "_4EVER_BE_*" --stash --no-rebase`
+  - 주요 옵션:
+    - `--branch <name>`: 특정 브랜치로 업데이트(기본: 원격 HEAD 추적 브랜치)
+    - `--stash`/`--pop-stash`: 로컬 변경사항 임시 보관/복원
+    - `--no-rebase`: rebase 대신 merge로 pull
+    - `--force`: 원격 상태로 강제 초기화(로컬 변경 폐기 주의)
+    - `--submodules`: 서브모듈까지 재귀 업데이트
+    - `-n/--dry-run`: 실제 변경 없이 계획만 출력
+- 실패 요약 출력: 실패한 리포는 마지막에 `Failures:` 섹션으로 리포 이름과 오류 요약을 출력합니다.
+  - 예: 접근 권한/원격 URL 문제 → `Repository not found`/`Could not read from remote repository`
+  - 해결 가이드: 해당 폴더로 들어가 원격 확인 및 인증
+    - `cd <repo> && git remote -v`
+    - 권한이 없거나 URL이 잘못된 경우 원격 수정: `git remote set-url origin <정확한_URL>`
