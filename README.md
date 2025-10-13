@@ -184,6 +184,28 @@ make status
 -   **`make down`**: **개발 환경 전체 종료**
     -   실행 중인 모든 서비스 컨테이너를 중지하고 제거합니다. Kafka 데이터 볼륨도 함께 삭제하여 다음 실행 시 깨끗한 상태에서 시작하도록 합니다.
 
+### 🔄 리포지토리 최신화 (MSA 전체)
+
+여러 마이크로서비스 리포지토리를 한 번에 최신 상태로 업데이트합니다. 현재 폴더에서 `_4EVER_BE_*` 패턴에 매칭되는 디렉터리들을 자동으로 탐색합니다.
+
+```bash
+# 안전한 병합 방식(merge)로 최신화 (기본)
+make update-repos
+
+# 직접 실행 (옵션 커스터마이즈 가능)
+./scripts/update-repos.sh -r . -p "_4EVER_BE_*" --stash --no-rebase
+
+# 예시: develop 브랜치 강제 동기화 (주의: 로컬 변경사항 폐기)
+./scripts/update-repos.sh --branch develop --force
+```
+
+옵션 요약:
+- `--branch <name>`: 특정 브랜치를 명시 (미지정 시 `origin/HEAD` 추적 브랜치 사용)
+- `--stash`/`--pop-stash`: 업데이트 전 변경사항 임시 저장(필요시 복원)
+- `--no-rebase`: 병합(merge)로 pull, 기본은 rebase
+- `--force`: 원격 브랜치 상태로 강제 초기화(로컬 변경사항 폐기)
+- `--submodules`: 서브모듈까지 재귀적으로 최신화
+
 ### 📋 전체 서비스 관리
 
 -   **`make status`**: 실행 중인 모든 서비스와 데이터베이스의 상태를 확인합니다.

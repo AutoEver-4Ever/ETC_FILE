@@ -32,6 +32,7 @@ help:
 	@echo "  make restart          - 모든 서비스 재시작"
 	@echo "  make status           - 서비스 상태 확인"
 	@echo "  make logs             - 전체 로그 확인 (실시간)"
+	@echo "  make update-repos     - 모든 서비스 Git 최신화 (_4EVER_BE_*)"
 	@echo ""
 	@echo "🔧 개별 서비스 재빌드+재시작:"
 	@echo "  make rebuild-gateway  - Gateway 재빌드 및 재시작"
@@ -90,6 +91,12 @@ help:
 	@echo ""
 	@echo "💡 빠른 시작: make dev"
 	@echo ""
+
+##@ 리포지토리 관리
+
+update-repos:
+	@echo "🔄 모든 서비스 리포지토리를 최신화합니다 (_4EVER_BE_*)"
+	@./scripts/update-repos.sh -r . -p "_4EVER_BE_*" --stash --no-rebase
 
 ##@ 개발 환경 관리
 
