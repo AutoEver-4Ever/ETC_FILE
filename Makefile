@@ -14,8 +14,11 @@
 
 # 기본 변수
 COMPOSE_FILE := $(shell if [ -f docker-compose.yml ]; then echo "docker-compose.yml"; else echo "docker-compose.prod.yml"; fi)
-COMPOSE_DEV = docker compose
-COMPOSE_PROD = docker compose -f docker-compose.prod.yml
+# Auto-detect docker compose plugin vs standalone docker-compose
+COMPOSE_DEV := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; \
+                 elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; \
+                 else echo "docker compose"; fi)
+COMPOSE_PROD := $(COMPOSE_DEV) -f docker-compose.prod.yml
 SERVICES = gateway auth alarm business payment scm
 
 # 도움말 (기본 명령어)
