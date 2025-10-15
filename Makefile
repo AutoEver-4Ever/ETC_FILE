@@ -11,7 +11,8 @@
         redis-up redis-down redis-logs redis-cli redis-monitor \
         infra-up infra-down infra-logs infra-status \
         clean-volumes clean-all health check-ports dev quick-start full-restart stats mem-total \
-        update-repos update-repos-main update-repos-dev
+        update-repos update-repos-main update-repos-dev \
+        reset-colima
 
 # 기본 변수
 THIS_MAKEFILE := $(lastword $(MAKEFILE_LIST))
@@ -92,6 +93,9 @@ help:
 	@echo "  make prod-deploy-business - Business 프로덕션 배포"
 	@echo "  make prod-deploy-payment  - Payment 프로덕션 배포"
 	@echo "  make prod-deploy-scm      - SCM 프로덕션 배포"
+	@echo ""
+	@echo "🖥️  Colima 관리:"
+	@echo "  make reset-colima     - Colima 초기화 및 재시작"
 	@echo ""
 	@echo "🧹 정리:"
 	@echo "  make clean            - Docker 리소스 정리"
@@ -662,3 +666,11 @@ full-restart:
 	$(COMPOSE_DEV) up -d --build
 	@echo "✅ 전체 재시작 완료"
 	@make status
+
+##@ Colima 관리
+reset-colima:
+	@echo "🔥 Colima를 초기화합니다. 기존 인스턴스를 삭제하고 새로 시작합니다..."
+	@colima delete --force || true
+	@echo "🚀 새로운 Colima 인스턴스를 CPU 4, Memory 8GB로 시작합니다..."
+	@colima start --cpu 4 --memory 8
+	@echo "✅ Colima 재시작 완료! 이제 'make dev'를 실행하세요."
