@@ -13,6 +13,8 @@ Options:
   -r, --root DIR         Root directory to search (default: current directory)
   -p, --pattern GLOB     Repo folder pattern (default: _4EVER_BE_*)
   -b, --branch NAME      Target branch to checkout/pull (default: origin HEAD)
+      --main             Shortcut for --branch main
+      --dev              Shortcut for --branch dev
       --remote NAME      Remote name (default: origin)
       --no-rebase        Use merge instead of rebase (default: rebase)
       --stash            Stash local changes before updating
@@ -27,6 +29,8 @@ Examples:
   scripts/update-repos.sh
   scripts/update-repos.sh -r . -p "_4EVER_BE_*" --branch develop --stash
   scripts/update-repos.sh --root "$HOME/workspace" --pattern "_4EVER_BE_*"
+  scripts/update-repos.sh --main
+  scripts/update-repos.sh --dev --stash
 EOF
 }
 
@@ -51,6 +55,8 @@ while [[ $# -gt 0 ]]; do
     -r|--root) ROOT="$2"; shift 2;;
     -p|--pattern) PATTERN="$2"; shift 2;;
     -b|--branch) BRANCH="$2"; shift 2;;
+    --main) BRANCH="main"; shift;;
+    --dev) BRANCH="dev"; shift;;
     --remote) REMOTE="$2"; shift 2;;
     --no-rebase) REBASE=0; shift;;
     --stash) STASH=1; shift;;

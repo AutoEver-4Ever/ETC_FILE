@@ -192,14 +192,21 @@ make status
 # 안전한 병합 방식(merge)로 최신화 (기본)
 make update-repos
 
+# main/dev 브랜치로 간편 최신화
+make update-repos-main
+make update-repos-dev
+
 # 직접 실행 (옵션 커스터마이즈 가능)
 ./scripts/update-repos.sh -r . -p "_4EVER_BE_*" --stash --no-rebase
+./scripts/update-repos.sh --main         # main 브랜치 대상으로 pull
+./scripts/update-repos.sh --dev          # dev 브랜치 대상으로 pull
 
 # 예시: develop 브랜치 강제 동기화 (주의: 로컬 변경사항 폐기)
 ./scripts/update-repos.sh --branch develop --force
 ```
 
 옵션 요약:
+- `--main`/`--dev`: main 또는 dev 브랜치 대상으로 업데이트
 - `--branch <name>`: 특정 브랜치를 명시 (미지정 시 `origin/HEAD` 추적 브랜치 사용)
 - `--stash`/`--pop-stash`: 업데이트 전 변경사항 임시 저장(필요시 복원)
 - `--no-rebase`: 병합(merge)로 pull, 기본은 rebase
@@ -304,6 +311,7 @@ Makefile은 환경에 따라 `docker compose`(플러그인)와 `docker-compose`(
 - 직접 실행(옵션 사용자화):
   - `./scripts/update-repos.sh -r . -p "_4EVER_BE_*" --stash --no-rebase`
   - 주요 옵션:
+    - `--main`/`--dev`: main 또는 dev 브랜치로 업데이트
     - `--branch <name>`: 특정 브랜치로 업데이트(기본: 원격 HEAD 추적 브랜치)
     - `--stash`/`--pop-stash`: 로컬 변경사항 임시 보관/복원
     - `--no-rebase`: rebase 대신 merge로 pull
